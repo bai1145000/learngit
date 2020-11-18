@@ -21,6 +21,10 @@ class BaseModelViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
         data = response.data
+        if 'classify' not in request.resolver_match.url_name : #除了分类不需要
+            total = len(response.data)
+            kwargs['total'] = total #额外加入total参数
+            kwargs['success'] = True
         return Response(ResponseTemplate(status='成功', code=200, data = data, kwargs=kwargs).template())
    
     def create(self, request, *args, **kwargs):

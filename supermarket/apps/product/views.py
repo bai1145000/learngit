@@ -6,9 +6,10 @@ from .serializers import ProductListSerializer, ProductClassifySerializer, Produ
 from rest_framework.response import Response
 from rest_framework import viewsets
 from db.filter import ProductFilter
-import json, uuid
+import json, uuid, random
 from django.contrib.admin.models import LogEntry
 from itertools import chain
+from django.db.models import Q
 # Create your views here.
 
 class ProductListViews(BaseModelViewSet):
@@ -21,12 +22,6 @@ class ProductListViews(BaseModelViewSet):
         user = self.request.user
         queryset = Product.objects.filter(is_delete = False).filter(create_user_id=user.id).order_by('-create_time')
         return queryset
-
-    def list(self,request,*args,**kwargs):
-        total = len(self.get_queryset())
-        kwargs['total'] = total #额外加入total参数
-        kwargs['success'] = True
-        return super().list(request,*args,**kwargs)
 
     def create(self,request,*args, **kwargs):
         product_name = request.data.get('product_name')
@@ -77,11 +72,6 @@ class ProductClassifyViews(BaseModelViewSet):
         self.queryset = ProductClassify.objects.filter(is_delete = False)
         return super().get_object()
 
-    def list(self, request, *args, **kwargs):
-        response = super().list(request, *args, **kwargs)
-        data = response.data
-        return Response(data)
-
     def create(self,request,*args, **kwargs):
         label = self.request.data.get('label')
         classify = ProductClassify.objects.filter(is_delete = False).filter(name = label).last()
@@ -106,13 +96,6 @@ class ProductCenterViews(BaseModelViewSet):
             queryset = queryset.order_by('{}create_time'.format( '' if ordering[0] !='-' else ordering[0]))
         return queryset
 
-    def list(self,request,*args,**kwargs):
-        total = len(self.get_queryset())
-        kwargs['total'] = total #额外加入total参数
-        kwargs['success'] = True
-        return super().list(request,*args,**kwargs)
-
-
 class SlideshowViews(viewsets.ReadOnlyModelViewSet):
     '''首页推荐轮播图'''
    
@@ -132,10 +115,11 @@ class SlideshowViews(viewsets.ReadOnlyModelViewSet):
                     break
             max_product.update({k:i})
 
-        data_name = queryset.filter(product_name= max_product.get('name'))
-        data_price = queryset.filter(product_price =max_product.get('price_max'))
+        data_name = queryset.filter(Q(product_name= max_product.get('name'))| Q(product_classify = max_product.get('classify')))
+        data_price = queryset.filter(Q(product_price__lte=max_product.get('price_max'))&Q(product_price__gt=max_product.get('price_min',0)))
         # data_price = queryset.raw('select * from product_manage.products where product_price <%s',params=[max_product.get('price_max')])
-        return data_name | data_price
+        data_price = random.choices(data_price,k=2) #随机返回2条
+        return list(set(data_price + list(data_name))) #去重
     
     def list(self,request,*args,**kwargs):
         response = super().list(request, *args, **kwargs)
@@ -150,7 +134,7 @@ def keyword(request):
     }
     '''
     # log = LogEntry.objects.filter(object_id=request.resolver_match.url_name) #基于该视图的所有loging
-    log =  LogEntry.objects.filter(object_id="center-list") #基于该视图的所有loging
+    log =  LogEntry.objects.filter(object_id="center-list").order_by('-action_time')[:10] #基于该视图的最近10条loging
     classify_dict = {}
     for i in log:
         import_u = eval(i.change_message).get('import')
