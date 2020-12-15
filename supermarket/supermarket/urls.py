@@ -9,5 +9,6 @@ urlpatterns = [
     path('api/v1/product/', include('product.urls', namespace='product')),
     path('api/v1/collection/',include('collect.urls', namespace='collect')),
     path('', include('rest_framework.urls')),
+    path('api/v1/trade/', include('trade.urls', namespace= 'trade'))
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

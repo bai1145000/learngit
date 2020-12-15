@@ -10,6 +10,7 @@ import json, uuid, random
 from django.contrib.admin.models import LogEntry
 from itertools import chain
 from django.db.models import Q
+import asyncio
 # Create your views here.
 
 class ProductListViews(BaseModelViewSet):
@@ -103,7 +104,7 @@ class SlideshowViews(viewsets.ReadOnlyModelViewSet):
     
     def get_queryset(self):
         # LogEntry
-        filters = keyword(self.request)
+        filters = keyword()
         max_product = {}
         queryset = Product.objects.filter(is_delete = False).filter(product_is_putaway=True)
         #查找每组数据总出现次数最多的
@@ -119,14 +120,21 @@ class SlideshowViews(viewsets.ReadOnlyModelViewSet):
         data_price = queryset.filter(Q(product_price__lte=max_product.get('price_max'))&Q(product_price__gt=max_product.get('price_min',0)))
         # data_price = queryset.raw('select * from product_manage.products where product_price <%s',params=[max_product.get('price_max')])
         data_price = random.choices(data_price,k=2) #随机返回2条
-        return list(set(data_price + list(data_name))) #去重
+
+        data = data_price + list(data_name)
+        data = data + random.choices(queryset,k=(6-len(data))) if len(data)<6 else data
+        #保证6条数据全是不一样的
+        while len(set(data))<6:
+            data.append(random.choice(queryset))
+            data = list(set(data))
+        return data
     
     def list(self,request,*args,**kwargs):
         response = super().list(request, *args, **kwargs)
         data = response.data
         return Response(ResponseTemplate(status='成功', code=200, data = data, kwargs=kwargs).template())
 
-def keyword(request):
+def keyword():
     '''寻找出筛选分组的数据
     {
         name:[....],
@@ -145,3 +153,7 @@ def keyword(request):
                 continue 
             classify_dict[k].append(import_u.get(k))
     return classify_dict
+
+
+
+

@@ -95,7 +95,6 @@ class ProductClassifySerializer(serializers.ModelSerializer):
 
 class SlideshowViewsSerializer(serializers.ModelSerializer):
     '''轮播'''
-
     class Meta:
 
         model = Product
